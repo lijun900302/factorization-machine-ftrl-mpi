@@ -13,7 +13,6 @@
 struct sparse_feature{
     long int idx;
     int val;
-    //float val;
 };
 
 class Load_Data {
@@ -25,12 +24,11 @@ public:
     std::vector<int> label;
     std::string line;
     int y, nchar;
-    //float value;
     int value;
     long int index;
     long int loc_fea_dim = 0;
     long int glo_fea_dim = 0;
-    int factor = 2;
+    int factor = 10;
 
     Load_Data(const char *file_name){
         fin_.open(file_name, std::ios::in);
@@ -47,7 +45,6 @@ public:
     void load_data_batch(int nproc, int rank){
         MPI_Status status;
         fea_matrix.clear();
-        //std::cout<<"load batch data start..."<<std::endl;
         while(!fin_.eof()){
             std::getline(fin_, line);
             if(fin_.eof()) break;
@@ -57,7 +54,6 @@ public:
                 pline += nchar;
                 label.push_back(y);
                 while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
-                //while(sscanf(pline, "%ld:%lf%n", &index, &value, &nchar) >= 2){
                     pline += nchar;
                     sf.idx = index;
                     if(index > loc_fea_dim) loc_fea_dim = index;
@@ -76,7 +72,7 @@ public:
                 if(loc_fea_dim >= glo_fea_dim) glo_fea_dim = loc_fea_dim + 1;
             }
         }
-        MPI_Bcast(&glo_fea_dim, 1, MPI_LONG, 0, MPI_COMM_WORLD);//must be in all processes code;
+        MPI_Bcast(&glo_fea_dim + 1, 1, MPI_LONG, 0, MPI_COMM_WORLD);//must be in all processes code;
     }
 private:
 };
