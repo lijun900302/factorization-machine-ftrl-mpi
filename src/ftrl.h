@@ -78,7 +78,7 @@ class FTRL{
                     float tmpl = -1 * ( ( beta + sqrt(loc_n[col]) ) / alpha  + lambda2);
                     loc_w[col] = tmpr / tmpl;
                 }
-            }
+            }//end for
         }
 
         void update_v(){// only for master node
@@ -97,8 +97,8 @@ class FTRL{
                         float tmpl = -1 * ( ( beta + sqrt(loc_n_v[k][col]) ) / alpha  + lambda2);
                         loc_v[k][col] = tmpr / tmpl;
                     }
-                }
-            }
+                }//end for
+            }//end for
         }
 
         void batch_gradient_calculate(int &row){
@@ -182,11 +182,17 @@ class FTRL{
                     for(int col = 0; col < data->glo_fea_dim; col++){
                         loc_g[col] /= batch_size;
                     }
+                    /*
                     for(int k = 0; k < data->factor; k++){
                         for(int j = 0; j < data->glo_fea_dim; j++){
                             loc_g_v[k][j] /= batch_size;
                         }
                     }
+                    */
+                    for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
+                        loc_g_v_onedim[j] /= batch_size;
+                    }
+
                     if(rank != 0){//slave nodes send gradient to master node;
                         MPI_Send(loc_g, data->glo_fea_dim, MPI_FLOAT, 0, 99, MPI_COMM_WORLD);
                         MPI_Send(loc_g_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, 0, 399, MPI_COMM_WORLD);
@@ -195,10 +201,15 @@ class FTRL{
                         for(int j = 0; j < data->glo_fea_dim; j++){//store local gradient to glo_g;
                             glo_g[j] = loc_g[j];
                         }
+                        /*
                         for(int k = 0; k < data->factor; k++){
                             for(int j = 0; j < data->glo_fea_dim; j++){
                                 glo_g_v[k][j] = loc_g_v[k][j];
                             }
+                        }
+                        */
+                        for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
+                            glo_g_v_onedim[j] = loc_g_v[j];
                         }
 
                         for(int r = 1; r < num_proc; r++){//receive other node`s gradient and store to glo_g;
@@ -207,20 +218,31 @@ class FTRL{
                                 glo_g[j] += loc_g[j];
                             }
                             MPI_Recv(loc_g_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, r, 399, MPI_COMM_WORLD, &status);
+                            /*
                             for(int k = 0; k < data->factor; k++){
                                 for(int j = 0; j < data->glo_fea_dim; j++){
                                     glo_g_v[k][j] = loc_g_v[k][j];
                                 }
                             }
+                            */
+                            for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
+                                glo_g_v_onedim[j] += loc_g_v_onedim[j];
+                            }
                         }
                         for(int j = 0; j < data->glo_fea_dim; j++){
                             glo_g[j] /= num_proc;
                         }
+                        /*
                         for(int k = 0; k < data->factor; k++){
                             for(int j = 0; j < data->glo_fea_dim; j++){
                                 glo_g_v[k][j] /= num_proc; 
                             }
                         }
+                        */
+                        for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
+                            glo_g_v_onedim[j] /= num_proc;
+                        }
+
                         update_w();
                         update_v();
                     }
