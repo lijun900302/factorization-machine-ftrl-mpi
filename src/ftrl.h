@@ -114,15 +114,15 @@ class FTRL{
                 
                 std::vector<float> vx_sum(data->factor, 0.0);
                 for(int k = 0; k < data->factor; k++){
-                    float vxvx = 0.0, vvxx = 0.0;
+                    float vx = 0.0, vxvx = 0.0, vvxx = 0.0;
                     for(int col = 0; col < ins_seg_num; col++){
                         index = data->fea_matrix[row][col].idx;
                         value = data->fea_matrix[row][col].val;
-                        vxvx += loc_v[k][index] * value;
+                        vx += loc_v[k][index] * value;
                         vvxx += loc_v[k][index] * loc_v[k][index] * value * value;
                     }
-                    vx_sum[k] = vxvx;
-                    vxvx *= vxvx;
+                    vx_sum[k] = vx;
+                    vxvx = vx * vx;
                     vxvx -= vvxx;
                     wx += vxvx * 1.0 / 2.0;
                 }
@@ -134,14 +134,14 @@ class FTRL{
                     value = data->fea_matrix[row][col].val;
                     loc_g[index] += delta * value;
                 }
+
                 for(int k = 0; k < data->factor; k++){
                     float vx = 0.0;
-                    float delta_vf = (vx_sum[k] - vx);
                     for(int col = 0; col < ins_seg_num; col++){
                         index = data->fea_matrix[row][col].idx;
                         value = data->fea_matrix[row][col].val;
                         vx = loc_v[k][index] * value;  
-                        loc_g_v[k][index] += delta * delta_vf * value;
+                        loc_g_v[k][index] += delta * (vx_sum[k] - vx) * value;
                     }
                 }
                 row++;
