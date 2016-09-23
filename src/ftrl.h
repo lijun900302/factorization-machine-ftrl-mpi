@@ -178,6 +178,7 @@ class FTRL{
                 while(row < data->fea_matrix.size()){
                     if( (batches == batch_num_min - 1) ) break;
                     batch_gradient_calculate(row);
+
                     for(int col = 0; col < data->glo_fea_dim; col++){
                         loc_g[col] /= batch_size;
                     }
@@ -186,10 +187,9 @@ class FTRL{
                             loc_g_v[k][j] /= batch_size;
                         }
                     }
-
                     if(rank != 0){//slave nodes send gradient to master node;
                         MPI_Send(loc_g, data->glo_fea_dim, MPI_FLOAT, 0, 99, MPI_COMM_WORLD);
-                        MPI_Send(loc_g_v, data->factor * data->glo_fea_dim, MPI_FLOAT, 0, 399, MPI_COMM_WORLD);
+                        MPI_Send(loc_g_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, 0, 399, MPI_COMM_WORLD);
                     }
                     else if(rank == 0){//rank 0 is master node
                         for(int j = 0; j < data->glo_fea_dim; j++){//store local gradient to glo_g;
@@ -206,7 +206,7 @@ class FTRL{
                             for(int j = 0; j < data->glo_fea_dim; j++){
                                 glo_g[j] += loc_g[j];
                             }
-                            MPI_Recv(loc_g_v, data->factor * data->glo_fea_dim, MPI_FLOAT, r, 399, MPI_COMM_WORLD, &status);
+                            MPI_Recv(loc_g_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, r, 399, MPI_COMM_WORLD, &status);
                             for(int k = 0; k < data->factor; k++){
                                 for(int j = 0; j < data->glo_fea_dim; j++){
                                     glo_g_v[k][j] = loc_g_v[k][j];
@@ -228,12 +228,12 @@ class FTRL{
                     if(rank == 0){
                         for(int r = 1; r < num_proc; r++){
                             MPI_Send(loc_w, data->glo_fea_dim, MPI_FLOAT, r, 999, MPI_COMM_WORLD);
+                            MPI_Send(loc_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, r, 3999, MPI_COMM_WORLD);
                         }
-                        MPI_Send(loc_v, data->factor * data->glo_fea_dim, MPI_FLOAT, 0, 3999, MPI_COMM_WORLD);
                     }
                     else if(rank != 0){
                         MPI_Recv(loc_w, data->glo_fea_dim, MPI_FLOAT, 0, 999, MPI_COMM_WORLD, &status);
-                        MPI_Recv(loc_v, data->factor * data->glo_fea_dim, MPI_FLOAT, 0, 3999, MPI_COMM_WORLD, &status);
+                        MPI_Recv(loc_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, 0, 3999, MPI_COMM_WORLD, &status);
                     }
                     MPI_Barrier(MPI_COMM_WORLD);//will it make the procedure slowly? is it necessary?
                     batches++;
