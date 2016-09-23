@@ -72,7 +72,7 @@ public:
                 if(loc_fea_dim >= glo_fea_dim) glo_fea_dim = loc_fea_dim + 1;
             }
         }
-        MPI_Bcast(&glo_fea_dim + 1, 1, MPI_LONG, 0, MPI_COMM_WORLD);//must be in all processes code;
+        MPI_Bcast(&glo_fea_dim, 1, MPI_LONG, 0, MPI_COMM_WORLD);//must be in all processes code;
     }
 private:
 };
