@@ -13,6 +13,7 @@
 struct sparse_feature{
     long int idx;
     int val;
+    //float val;
 };
 
 class Load_Data {
@@ -23,12 +24,13 @@ public:
     sparse_feature sf;
     std::vector<int> label;
     std::string line;
-    std::set<long int> feaIdx;
-    std::set<long int>::iterator setIter;
-    int y, value, nchar;
+    int y, nchar;
+    //float value;
+    int value;
     long int index;
     long int loc_fea_dim = 0;
     long int glo_fea_dim = 0;
+    int factor = 2;
 
     Load_Data(const char *file_name){
         fin_.open(file_name, std::ios::in);
@@ -55,13 +57,10 @@ public:
                 pline += nchar;
                 label.push_back(y);
                 while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
+                //while(sscanf(pline, "%ld:%lf%n", &index, &value, &nchar) >= 2){
                     pline += nchar;
                     sf.idx = index;
-                    if(index+1 > loc_fea_dim) loc_fea_dim = index+1;
-                    setIter = feaIdx.find(index);
-                    if(setIter == feaIdx.end()){
-                        feaIdx.insert(index);
-                    }
+                    if(index > loc_fea_dim) loc_fea_dim = index;
                     sf.val = value;
                     key_val.push_back(sf);
                 }
@@ -74,12 +73,11 @@ public:
         else if(rank == 0){ 
             for(int i = 1; i < nproc; i++){
                 MPI_Recv(&loc_fea_dim, 1, MPI_LONG, i, 90, MPI_COMM_WORLD, &status);
-                if(loc_fea_dim > glo_fea_dim) glo_fea_dim = loc_fea_dim;
+                if(loc_fea_dim >= glo_fea_dim) glo_fea_dim = loc_fea_dim + 1;
             }
         }
         MPI_Bcast(&glo_fea_dim, 1, MPI_LONG, 0, MPI_COMM_WORLD);//must be in all processes code;
     }
-    long int loc_ins_num = 0;
 private:
 };
 #endif
