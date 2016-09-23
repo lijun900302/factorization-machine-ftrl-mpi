@@ -209,7 +209,7 @@ class FTRL{
                         }
                         */
                         for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
-                            glo_g_v_onedim[j] = loc_g_v[j];
+                            glo_g_v_onedim[j] = loc_g_v_onedim[j];
                         }
 
                         for(int r = 1; r < num_proc; r++){//receive other node`s gradient and store to glo_g;
