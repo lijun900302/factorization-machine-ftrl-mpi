@@ -30,7 +30,6 @@ class Predict{
         delete[] g_clk;
     }
 
-    //void predict(std::vector<float> glo_w){
     void predict(float* glo_w, float** glo_v){
         int index = 0; float value = 0.0; float pctr = 0.0;
         for(int i = 0; i < data->fea_matrix.size(); i++) {

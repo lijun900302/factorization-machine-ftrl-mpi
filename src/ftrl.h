@@ -26,6 +26,9 @@ class FTRL{
             loc_v=new float*[data->factor];
             for(int i = 0; i < data->factor; i++){
                 loc_v[i]=&loc_v_onedim[i*data->glo_fea_dim];
+                for(int j = 0; j < data->glo_fea_dim; j++){
+                    loc_v[i][j] = 0.01;
+                }
             }
             loc_g_v_onedim = new float[v_dim];
             loc_g_v = new float*[data->factor];
@@ -87,6 +90,7 @@ class FTRL{
                     loc_sigma_v[k][col] = ( sqrt (loc_n_v[k][col] + glo_g_v[k][col] * glo_g_v[k][col]) - sqrt(loc_n_v[k][col]) ) / alpha;
                     loc_n_v[k][col] += glo_g_v[k][col] * glo_g_v[k][col];
                     loc_z_v[k][col] += glo_g_v[k][col] - loc_sigma_v[k][col] * loc_v[k][col];
+                    //std::cout<<"loc_z_v = "<<loc_z_v[k][col]<<std::endl;
                     if(abs(loc_z_v[k][col]) <= lambda1){
                         loc_v[k][col] = 0.0;
                     }
@@ -106,26 +110,23 @@ class FTRL{
             for(int line = 0; line < batch_size; line++){
                 float wx = bias;
                 int ins_seg_num = data->fea_matrix[row].size();
+                std::vector<float> vx_sum(data->factor, 0.0);
+                float vxvx = 0.0, vvxx = 0.0;
                 for(int col = 0; col < ins_seg_num; col++){//for one instance
                     index = data->fea_matrix[row][col].idx;
                     value = data->fea_matrix[row][col].val;
                     wx += loc_w[index] * value;
-                }
-                
-                std::vector<float> vx_sum(data->factor, 0.0);
-                for(int k = 0; k < data->factor; k++){
-                    float vx = 0.0, vxvx = 0.0, vvxx = 0.0;
-                    for(int col = 0; col < ins_seg_num; col++){
-                        index = data->fea_matrix[row][col].idx;
-                        value = data->fea_matrix[row][col].val;
-                        vx += loc_v[k][index] * value;
-                        vvxx += loc_v[k][index] * loc_v[k][index] * value * value;
+                    for(int k = 0; k < data->factor; k++){
+                        int loc_v_temp = loc_v[k][index];
+                        vx_sum[k] += loc_v_temp * value;
+                        vvxx += loc_v_temp * loc_v_temp * value * value;
                     }
-                    vx_sum[k] = vx;
-                    vxvx = vx * vx;
-                    vxvx -= vvxx;
-                    wx += vxvx * 1.0 / 2.0;
                 }
+                for(int k = 0; k < data->factor; k++){
+                    vxvx += vx_sum[k] * vx_sum[k]; 
+                }
+                vxvx -= vvxx;
+                wx += vxvx * 1.0 / 2.0;
                 pctr = sigmoid(wx);
                 float delta = pctr - data->label[row];
 
@@ -133,21 +134,24 @@ class FTRL{
                     index = data->fea_matrix[row][col].idx;
                     value = data->fea_matrix[row][col].val;
                     loc_g[index] += delta * value;
-                }
-
-                for(int k = 0; k < data->factor; k++){
                     float vx = 0.0;
-                    for(int col = 0; col < ins_seg_num; col++){
-                        index = data->fea_matrix[row][col].idx;
-                        value = data->fea_matrix[row][col].val;
-                        vx = loc_v[k][index] * value;  
+                    for(int k = 0; k < data->factor; k++){
+                        vx = loc_v[k][index] * value;
                         loc_g_v[k][index] += delta * (vx_sum[k] - vx) * value;
                     }
                 }
+                //print2dim(loc_g_v, data->factor, data->glo_fea_dim);
                 row++;
             }//end for
         }
-         
+        void print2dim(float** a, int m, int n){
+            for(int i = 0; i < m; i++){
+                for(int j = 0; j < n; j++){
+                    if(a[i][j] != 0) std::cout<<a[i][j]<<" ";
+                }
+                std::cout<<std::endl;
+            }
+        } 
         void save_model(int epoch){
             char buffer[1024];
             snprintf(buffer, 1024, "%d", epoch);
@@ -166,10 +170,9 @@ class FTRL{
         }
 
         void ftrl(){
-            int batch_num = data->fea_matrix.size() / batch_size;
-            int batch_num_min = 0;
+            int batch_num = data->fea_matrix.size() / batch_size, batch_num_min = 0;
             MPI_Allreduce(&batch_num, &batch_num_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-            std::cout<<"epochs = "<<epochs<<" batch_num_min = "<<batch_num_min<<std::endl;
+            std::cout<<"total epochs = "<<epochs<<" batch_num_min = "<<batch_num_min<<std::endl;
             for(int epoch = 0; epoch < epochs; epoch++){
                 int row = 0, batches = 0;
                 std::cout<<"epoch "<<epoch<<" ";
@@ -178,17 +181,10 @@ class FTRL{
                 while(row < data->fea_matrix.size()){
                     if( (batches == batch_num_min - 1) ) break;
                     batch_gradient_calculate(row);
-
+                    if(row % 50000 == 0) std::cout<<"row = "<<row<<std::endl;
                     for(int col = 0; col < data->glo_fea_dim; col++){
                         loc_g[col] /= batch_size;
                     }
-                    /*
-                    for(int k = 0; k < data->factor; k++){
-                        for(int j = 0; j < data->glo_fea_dim; j++){
-                            loc_g_v[k][j] /= batch_size;
-                        }
-                    }
-                    */
                     for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
                         loc_g_v_onedim[j] /= batch_size;
                     }
@@ -201,13 +197,6 @@ class FTRL{
                         for(int j = 0; j < data->glo_fea_dim; j++){//store local gradient to glo_g;
                             glo_g[j] = loc_g[j];
                         }
-                        /*
-                        for(int k = 0; k < data->factor; k++){
-                            for(int j = 0; j < data->glo_fea_dim; j++){
-                                glo_g_v[k][j] = loc_g_v[k][j];
-                            }
-                        }
-                        */
                         for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
                             glo_g_v_onedim[j] = loc_g_v_onedim[j];
                         }
@@ -218,13 +207,6 @@ class FTRL{
                                 glo_g[j] += loc_g[j];
                             }
                             MPI_Recv(loc_g_v_onedim, data->factor * data->glo_fea_dim, MPI_FLOAT, r, 399, MPI_COMM_WORLD, &status);
-                            /*
-                            for(int k = 0; k < data->factor; k++){
-                                for(int j = 0; j < data->glo_fea_dim; j++){
-                                    glo_g_v[k][j] = loc_g_v[k][j];
-                                }
-                            }
-                            */
                             for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
                                 glo_g_v_onedim[j] += loc_g_v_onedim[j];
                             }
@@ -232,13 +214,6 @@ class FTRL{
                         for(int j = 0; j < data->glo_fea_dim; j++){
                             glo_g[j] /= num_proc;
                         }
-                        /*
-                        for(int k = 0; k < data->factor; k++){
-                            for(int j = 0; j < data->glo_fea_dim; j++){
-                                glo_g_v[k][j] /= num_proc; 
-                            }
-                        }
-                        */
                         for(int j = 0; j < data->factor * data->glo_fea_dim; j++){
                             glo_g_v_onedim[j] /= num_proc;
                         }

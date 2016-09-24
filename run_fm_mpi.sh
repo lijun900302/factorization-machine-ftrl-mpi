@@ -8,4 +8,4 @@ done
 scp fm_ftrl_mpi worker@10.101.2.89:/home/worker/xiaoshu/factorization-machine-ftrl-mpi/.
 scp fm_ftrl_mpi worker@10.101.2.90:/home/worker/xiaoshu/factorization-machine-ftrl-mpi/.
 mpirun -f ./hosts -np $process_number ././fm_ftrl_mpi ftrl 200 500 0.0 0.1 1.0 0.001 0.0 ./data/v2v_train ./data/v2v_test
-#mpirun -f ./hosts -np $process_number ./fm_ftrl_mpi ftrl 200 500 0.0 0.1 1.0 0.001 0.0 ./data/agaricus.txt.train ./data/agaricus.txt.test
+#mpirun -f ./hosts -np $process_number ./fm_ftrl_mpi ftrl 10 50 0.0 0.1 1.0 0.001 0.0 ./data/agaricus.txt.train ./data/agaricus.txt.test
